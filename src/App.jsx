@@ -1,30 +1,59 @@
-import './App.css'
-import React, {useState} from "react";
+import React, { useState, useEffect } from 'react';
+import io from 'socket.io-client';
 
-function App() {
+const socket = io('http://localhost:4000'); // Change the URL to your server URL
 
+const App = () => {
   const [latitude, setLatitude] = useState(null);
   const [longitude, setLongitude] = useState(null);
 
-  const geolocation = () => {
-    if (navigator.geolocation){
-      navigator.geolocation.getCurrentPosition((position) => {
-        setLatitude(position.coords.latitude)
-        setLongitude(position.coords.longitude)
-      },(error) =>{
-        console.log("Location Error: ", error)
-      })
-    } else {
-      console.log("Geolocation isn't Supported.")
-    }
-  }
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLatitude(position.coords.latitude);
+          setLongitude(position.coords.longitude);
+          socket.emit('location', { latitude: position.coords.latitude, longitude: position.coords.longitude });
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+        }
+      );
 
-  geolocation();
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          setLatitude(position.coords.latitude);
+          setLongitude(position.coords.longitude);
+          socket.emit('location', { latitude: position.coords.latitude, longitude: position.coords.longitude });
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+        }
+      );
+
+      return () => {
+        navigator.geolocation.clearWatch(watchId);
+      };
+    } else {
+      console.error('Geolocation is not supported by this browser.');
+    }
+  }, []);
+
+  useEffect(() => {
+    socket.on('location', (data) => {
+      setLatitude(data.latitude);
+      setLongitude(data.longitude);
+    });
+
+    return () => {
+      socket.off('location');
+    };
+  }, []);
 
   return (
     <div>
       <h1>Current Location</h1>
-      {latitude!== null && longitude!== null? (
+      {latitude !== null && longitude !== null ? (
         <p>
           Latitude: {latitude}, Longitude: {longitude}
         </p>
@@ -32,7 +61,7 @@ function App() {
         <p>Loading...</p>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default App
+export default App;
